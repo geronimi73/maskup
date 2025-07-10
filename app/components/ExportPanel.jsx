@@ -2,16 +2,18 @@
 
 import { useState } from "react"
 import { maskToBw, dataURLToCanvas, canvasToBlob } from "@/lib/utils" 
+import { Download, Upload, RotateCcw } from "lucide-react"
 
 export default function ExportPanel({ images, annotations, onReset }) {
   const [hfApiKey, setHfApiKey] = useState("")
   const [hfDatasetName, setHfDatasetName] = useState("")
-  const [isExporting, setIsExporting] = useState(false)
+  const [isExportingZIP, setIsExportingZIP] = useState(false)
+  const [isExportingHF, setIsExportingHF] = useState(false)
 
   const annotatedCount = Object.keys(annotations).filter((id) => annotations[id].mask).length
 
   const downloadAsZip = async () => {
-    setIsExporting(true)
+    setIsExportingZIP(true)
 
     try {
       // Import JSZip dynamically
@@ -56,7 +58,7 @@ export default function ExportPanel({ images, annotations, onReset }) {
       alert("Error creating ZIP file: " + error.message)
     }
 
-    setIsExporting(false)
+    setIsExportingZIP(false)
   }
 
   const uploadToHuggingFace = async () => {
@@ -65,7 +67,7 @@ export default function ExportPanel({ images, annotations, onReset }) {
       return
     }
 
-    setIsExporting(true)
+    setIsExportingHF(true)
 
     try {
       // This is a simplified example - in a real implementation,
@@ -75,7 +77,7 @@ export default function ExportPanel({ images, annotations, onReset }) {
       alert("Error uploading to HuggingFace: " + error.message)
     }
 
-    setIsExporting(false)
+    setIsExportingHF(false)
   }
 
   return (
@@ -98,17 +100,19 @@ export default function ExportPanel({ images, annotations, onReset }) {
       <div className="space-y-4">
         <div>
           <h4 className="font-medium mb-3">Download as ZIP</h4>
+
           <button
             onClick={downloadAsZip}
-            disabled={isExporting || images.length === 0}
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+            disabled={isExportingZIP || images.length === 0}
+            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
-            {isExporting ? "Creating ZIP..." : "Download ZIP"}
+            <Download className="w-4 h-4" />
+            <span>{isExportingZIP ? "Creating ZIP..." : "Download ZIP"}</span>
           </button>
         </div>
 
         <div className="border-t pt-4">
-          <h4 className="font-medium mb-3">Upload to HuggingFace</h4>
+          <h4 className="font-medium mb-3">Upload to HuggingFace 🤗</h4>
           <div className="space-y-3">
             <input
               type="password"
@@ -126,18 +130,23 @@ export default function ExportPanel({ images, annotations, onReset }) {
             />
             <button
               onClick={uploadToHuggingFace}
-              disabled={isExporting || !hfApiKey || !hfDatasetName}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              disabled={isExportingHF || isExportingZIP || !hfApiKey || !hfDatasetName}
+              className="w-full px-4 py-2 bg-[#D0A704] text-white rounded-md hover:bg-[#FF9D0B]  flex items-center justify-center space-x-2"
             >
-              {isExporting ? "Uploading..." : "Upload to HF"}
+              <Upload className="w-4 h-4" />
+              <span>{isExportingHF ? "Uploading..." : "Upload to HF"}</span>
             </button>
           </div>
         </div>
 
         <div className="border-t pt-4">
-          <button onClick={onReset} className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
-            Start New Project
-          </button>
+          <button
+            onClick={onReset}
+            className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center space-x-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Start New Project</span>
+          </button>          
         </div>
       </div>
     </div>

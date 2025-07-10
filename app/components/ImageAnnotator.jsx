@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 
 import { Sparkles, Loader2 } from "lucide-react"
-import { canvasToBlob } from "@/lib/utils" 
+import { cloneCanvas, canvasToBlob, resizeDimension, resizeCanvas } from "@/lib/utils" 
 
 export default function ImageAnnotator({ images, currentIndex, onIndexChange, annotations, onAnnotationUpdate }) {
   const canvasRef = useRef(null)
@@ -28,6 +28,13 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   const generateCaption = async () => {
     setIsGeneratingCaption(true)
 
+    const imageCanvas = cloneCanvas(canvasRef.current)
+    const canvasDim = {w: imageCanvas.width, h: imageCanvas.height}
+    // resize biggest side to 512px
+    const canvasDimResized = resizeDimension(canvasDim)
+    const imageCanvasResized = resizeCanvas(imageCanvas, canvasDimResized)
+    const dataUrl = imageCanvasResized.toDataURL()
+
     try {
       // Convert image to base64 for API call
       const response = await fetch("/api/caption", {
@@ -36,7 +43,7 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          imgDataURL: currentImage.dataUrl,
+          imgDataURL: dataUrl,
         }),
       })
 

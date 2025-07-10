@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { maskToBw, dataURLToCanvas, canvasToBlob } from "@/lib/utils" 
 
 export default function ExportPanel({ images, annotations, onReset }) {
   const [hfApiKey, setHfApiKey] = useState("")
@@ -17,9 +18,6 @@ export default function ExportPanel({ images, annotations, onReset }) {
       const JSZip = (await import("jszip")).default
       const zip = new JSZip()
 
-      const imagesFolder = zip.folder("images")
-      const masksFolder = zip.folder("masks")
-
       let promptsText = ""
 
       for (const image of images) {
@@ -27,22 +25,24 @@ export default function ExportPanel({ images, annotations, onReset }) {
 
         // Add original image
         const imageBlob = await fetch(image.dataUrl).then((r) => r.blob())
-        imagesFolder.file(image.name, imageBlob)
+        zip.file(image.name, imageBlob)
 
         // Add mask if exists
         if (annotation?.mask) {
-          const maskBlob = await fetch(annotation.mask).then((r) => r.blob())
+          // convert mask dataURL to a Canvas, threshhold the canvas, blob it and save
+          let maskCanvas = await dataURLToCanvas(annotation.mask)
+          maskCanvas = maskToBw(maskCanvas)
+          const maskBlob = await canvasToBlob(maskCanvas)
           const maskName = image.name.replace(/\.[^/.]+$/, "_mask.png")
-          masksFolder.file(maskName, maskBlob)
+          zip.file(maskName, maskBlob)
         }
 
-        // Add prompt to text file
-        const prompt = annotation?.prompt || ""
-        promptsText += `${image.name}: ${prompt}\n`
-      }
+        // Add prompt as text file
+        const prompt = annotation?.prompt || "";
+        const promptName = image.name.replace(/\.[^/.]+$/, "_prompt.txt");
+        zip.file(promptName, prompt);
 
-      // Add prompts file
-      zip.file("prompts.txt", promptsText)
+      }
 
       // Generate and download zip
       const content = await zip.generateAsync({ type: "blob" })

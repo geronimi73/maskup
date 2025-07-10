@@ -7,7 +7,7 @@ export const metadata = {
   title: "Maskup - ML Dataset Annotation Tool",
   description: "Create masked datasets for machine learning",
   icons: {
-    icon: "/favicon.ico",
+    // icon: "/favicon.ico",
     shortcut: "/logo.png",
     apple: "/logo.png",
   },

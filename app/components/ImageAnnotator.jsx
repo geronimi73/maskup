@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from "react"
 
+import { Sparkles, Loader2 } from "lucide-react"
+import { canvasToBlob } from "@/lib/utils" 
+
 export default function ImageAnnotator({ images, currentIndex, onIndexChange, annotations, onAnnotationUpdate }) {
   const canvasRef = useRef(null)
   const maskCanvasRef = useRef(null) // Separate canvas for black/white mask
@@ -10,6 +13,7 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   const [brushSize, setBrushSize] = useState(20)
   const [maxBrushSize, setMaxBrushSize] = useState(500)
   const [prompt, setPrompt] = useState("")
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false)
 
   const currentImage = images[currentIndex]
   const currentAnnotation = annotations[currentImage?.id] || { prompt: "", mask: null }
@@ -20,6 +24,43 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
       loadImageAndMask()
     }
   }, [currentIndex, currentImage])
+
+  const generateCaption = async () => {
+    setIsGeneratingCaption(true)
+
+    try {
+      // Convert image to base64 for API call
+      const response = await fetch("/api/caption", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imgDataURL: currentImage.dataUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to generate caption")
+      }
+
+      const data = await response.json()
+      console.log(data)
+      const generatedCaption = data.caption
+
+      // Update the prompt with the generated caption
+      setPrompt(generatedCaption)
+      onAnnotationUpdate(currentImage.id, {
+        prompt: generatedCaption,
+        mask: currentAnnotation.mask,
+      })
+    } catch (error) {
+      console.error("Error generating caption:", error)
+      alert("Failed to generate caption. Please try again.")
+    } finally {
+      setIsGeneratingCaption(false)
+    }
+  }
 
   const loadImageAndMask = async () => {
     // Load image
@@ -188,13 +229,23 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Prompt/Caption (optional):</label>
-          <input
-            type="text"
-            value={prompt}
-            onChange={handlePromptChange}
-            placeholder="Describe what you're masking..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={prompt}
+              onChange={handlePromptChange}
+              placeholder="Describe what you're masking..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={generateCaption}
+              disabled={isGeneratingCaption}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2 whitespace-nowrap"
+            >
+              {isGeneratingCaption ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>{isGeneratingCaption ? "Generating..." : "Caption"}</span>
+            </button>
+          </div>
         </div>
       </div>
 

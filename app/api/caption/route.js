@@ -5,6 +5,8 @@ import { vl } from "moondream";
 const MD_API_KEY = process.env.MD_API_KEY
 const model = new vl({ apiKey: MD_API_KEY });
 
+export const maxDuration = 60;
+
 export async function POST(request) {
   try {
     const { imgDataURL } = await request.json()

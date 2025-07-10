@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ImageAnnotator({ images, currentIndex, onIndexChange, annotations, onAnnotationUpdate }) {
   const canvasRef = useRef(null)
-  const imageRef = useRef(null)
+  const maskCanvasRef = useRef(null) // Separate canvas for black/white mask
+  const imageCanvasRef = useRef(null) // Separate canvas for black/white mask
   const [isDrawing, setIsDrawing] = useState(false)
   const [brushSize, setBrushSize] = useState(20)
+  const [maxBrushSize, setMaxBrushSize] = useState(500)
   const [prompt, setPrompt] = useState("")
-  const [maskData, setMaskData] = useState(null)
 
   const currentImage = images[currentIndex]
   const currentAnnotation = annotations[currentImage?.id] || { prompt: "", mask: null }
@@ -20,33 +21,58 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
     }
   }, [currentIndex, currentImage])
 
-  const loadImageAndMask = () => {
+  const loadImageAndMask = async () => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
     const img = new Image()
 
-    img.onload = () => {
-      // Set canvas size to match image
-      canvas.width = img.width
-      canvas.height = img.height
+    // Load image
+    img.src = currentImage.dataUrl
+    await img.decode()
 
-      // Draw the image
-      ctx.drawImage(img, 0, 0)
+    // Draw image onto offscreen image canvas
+    const imageCanvas = imageCanvasRef.current
+    const imageCanvasCtx = imageCanvas.getContext("2d")
+    imageCanvas.width = img.width
+    imageCanvas.height = img.height
+    imageCanvasCtx.drawImage(img, 0, 0)
 
-      // Load existing mask if available
-      if (currentAnnotation.mask) {
-        const maskImg = new Image()
-        maskImg.onload = () => {
-          ctx.globalCompositeOperation = "source-over"
-          ctx.globalAlpha = 0.5
-          ctx.drawImage(maskImg, 0, 0)
-          ctx.globalAlpha = 1
-        }
-        maskImg.src = currentAnnotation.mask
-      }
+    // Load mask 
+    const maskCanvas = maskCanvasRef.current
+    const maskCtx = maskCanvas.getContext("2d")
+    maskCanvas.width = img.width
+    maskCanvas.height = img.height
+
+    if (currentAnnotation.mask) {
+      const maskImg = new Image()
+      maskImg.src = currentAnnotation.mask
+      await maskImg.decode()
+      maskCtx.drawImage(maskImg, 0, 0)
     }
 
-    img.src = currentImage.dataUrl
+    // make brush size 30%
+    setBrushSize(Math.round(Math.min(imageCanvas.height, imageCanvas.width) * 0.07))
+
+    updateVisualOverlay()
+
+  }
+
+  const updateVisualOverlay = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+
+    // 1 draw original image
+    canvas.width = imageCanvasRef.current.width
+    canvas.height = imageCanvasRef.current.height
+    ctx.drawImage(imageCanvasRef.current, 0, 0)
+
+    // 2 draw mask with alpha
+    const maskCanvas = maskCanvasRef.current
+    const maskAlpha = 0.6
+    ctx.globalAlpha = maskAlpha
+    ctx.drawImage(maskCanvas, 0, 0,);
+    ctx.globalAlpha = 1;
+
   }
 
   const startDrawing = (e) => {
@@ -57,8 +83,10 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   const draw = (e) => {
     if (!isDrawing) return
 
+    const maskColor = "#C440DB"
     const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    const maskCanvas = maskCanvasRef.current
+    const maskCtx = maskCanvas.getContext("2d")
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
@@ -66,12 +94,15 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
 
-    ctx.globalCompositeOperation = "source-over"
-    ctx.globalAlpha = 0.5
-    ctx.fillStyle = "#ff0000"
-    ctx.beginPath()
-    ctx.arc(x, y, brushSize, 0, 2 * Math.PI)
-    ctx.fill()
+    // Draw black circle on mask canvas
+    maskCtx.globalCompositeOperation = "source-over"
+    maskCtx.fillStyle = maskColor 
+    maskCtx.beginPath()
+    maskCtx.arc(x, y, brushSize, 0, 2 * Math.PI)
+    maskCtx.fill()
+
+    // Update visual overlay
+    updateVisualOverlay()
   }
 
   const stopDrawing = () => {
@@ -82,16 +113,8 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   }
 
   const saveMask = () => {
-    const canvas = canvasRef.current
-    const maskCanvas = document.createElement("canvas")
-    const maskCtx = maskCanvas.getContext("2d")
-
-    maskCanvas.width = canvas.width
-    maskCanvas.height = canvas.height
-
-    // Create a mask-only version
-    maskCtx.drawImage(canvas, 0, 0)
-    const maskDataUrl = maskCanvas.toDataURL()
+    const maskCanvas = maskCanvasRef.current
+    const maskDataUrl = maskCanvas.toDataURL("image/png")
 
     onAnnotationUpdate(currentImage.id, {
       prompt: prompt,
@@ -100,7 +123,16 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   }
 
   const clearMask = () => {
-    loadImageAndMask()
+    const maskCanvas = maskCanvasRef.current
+    const maskCtx = maskCanvas.getContext("2d")
+
+    // Clear mask canvas and fill with white
+    // maskCtx.fillStyle = "#000000"
+    maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+
+    // Update visual overlay
+    updateVisualOverlay()
+
     onAnnotationUpdate(currentImage.id, {
       prompt: prompt,
       mask: null,
@@ -146,7 +178,7 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
           <input
             type="range"
             min="5"
-            max="50"
+            max={maxBrushSize}
             value={brushSize}
             onChange={(e) => setBrushSize(Number.parseInt(e.target.value))}
             className="w-24"
@@ -180,6 +212,12 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
             className="border border-gray-300 cursor-crosshair max-w-full h-auto"
             style={{ maxHeight: "600px" }}
           />
+          {/* Hidden mask and image canvas */}
+          <canvas ref={maskCanvasRef} className="hidden" />
+          <canvas ref={imageCanvasRef} className="hidden" />
+        </div>
+        <div className="mt-2 text-xs text-gray-500">
+          Draw on the image to edit the mask. Red overlay shows your current mask.
         </div>
       </div>
     </div>

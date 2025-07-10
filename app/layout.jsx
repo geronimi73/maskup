@@ -1,5 +1,7 @@
 import "./globals.css"
 
+import { Toaster } from "@/components/ui/toaster"
+
 export const metadata = {
   title: "Maskup - ML Dataset Annotation Tool",
   description: "Create masked datasets for machine learning",
@@ -25,6 +27,7 @@ export default function RootLayout({ children }) {
           </div>
         </header>
         <main>{children}</main>
+        <Toaster />
       </body>
     </html>
   )

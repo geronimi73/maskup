@@ -129,7 +129,7 @@ export default function ExportPanel({ images, annotations, onReset }) {
             <button
               onClick={uploadToHuggingFace}
               disabled={isExportingHF || isExportingZIP || !hfApiKey || !hfDatasetName}
-              className="w-full px-4 py-2 bg-[#D0A704] text-white rounded-md hover:bg-[#FF9D0B]  flex items-center justify-center space-x-2"
+              className="w-full px-4 py-2 bg-[#FF9D0B] text-white rounded-md hover:bg-[#D0A704]  flex items-center justify-center space-x-2"
             >
               <Upload className="w-4 h-4" />
               <span>{isExportingHF ? "Uploading..." : "Upload to HF"}</span>

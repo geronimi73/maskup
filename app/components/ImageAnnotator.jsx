@@ -196,14 +196,14 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
           <div className="flex space-x-2">
             <button
               onClick={() => onIndexChange(Math.max(0, currentIndex - 1))}
-              disabled={currentIndex === 0}
+              disabled={currentIndex === 0 || isGeneratingCaption}
               className="px-3 py-1 text-sm bg-gray-100 rounded disabled:opacity-50"
             >
               Previous
             </button>
             <button
               onClick={() => onIndexChange(Math.min(images.length - 1, currentIndex + 1))}
-              disabled={currentIndex === images.length - 1}
+              disabled={currentIndex === images.length - 1 || isGeneratingCaption}
               className="px-3 py-1 text-sm bg-gray-100 rounded disabled:opacity-50"
             >
               Next

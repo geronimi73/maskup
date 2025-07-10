@@ -20,8 +20,6 @@ export default function ExportPanel({ images, annotations, onReset }) {
       const JSZip = (await import("jszip")).default
       const zip = new JSZip()
 
-      let promptsText = ""
-
       for (const image of images) {
         const annotation = annotations[image.id]
 

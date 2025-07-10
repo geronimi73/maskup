@@ -22,11 +22,8 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
   }, [currentIndex, currentImage])
 
   const loadImageAndMask = async () => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    const img = new Image()
-
     // Load image
+    const img = new Image()
     img.src = currentImage.dataUrl
     await img.decode()
 

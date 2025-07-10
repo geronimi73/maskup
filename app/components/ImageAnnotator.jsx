@@ -206,7 +206,7 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
             onMouseMove={draw}
             onMouseUp={stopDrawing}
             onMouseLeave={stopDrawing}
-            className="border border-gray-300 cursor-crosshair max-w-full h-auto"
+            className="border border-gray-300 cursor-paint max-w-full h-auto"
             style={{ maxHeight: "600px" }}
           />
           {/* Hidden mask and image canvas */}

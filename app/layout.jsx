@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata = {
-  title: "Maskup - ML Dataset Annotation Tool",
-  description: "Create masked datasets for machine learning",
+  title: "MaskUp - Image Annotation Tool",
+  description: "Create masked image datasets for machine learning",
   icons: {
     // icon: "/favicon.ico",
     shortcut: "/logo.png",

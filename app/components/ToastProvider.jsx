@@ -16,7 +16,7 @@ export const useToast = () => {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
-  const addToast = (message, type = "info", duration = 5000) => {
+  const addToast = (message, type = "info", duration = 7000) => {
     const id = Math.random().toString(36).substr(2, 9)
     const toast = { id, message, type, duration }
 

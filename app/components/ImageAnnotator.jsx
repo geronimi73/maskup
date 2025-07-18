@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button" 
 
 import { Sparkles, Loader2 } from "lucide-react"
 import { cloneCanvas, canvasToBlob, resizeDimension, resizeCanvas } from "@/lib/utils" 
@@ -201,20 +202,20 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
             Image {currentIndex + 1} of {images.length}: {currentImage.name}
           </h3>
           <div className="flex space-x-2">
-            <button
+            <Button
               onClick={() => onIndexChange(Math.max(0, currentIndex - 1))}
               disabled={currentIndex === 0 || isGeneratingCaption}
-              className="px-3 py-1 text-sm bg-gray-100 rounded disabled:opacity-50"
+              className="px-3 py-1 text-sm text-black bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50"
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onIndexChange(Math.min(images.length - 1, currentIndex + 1))}
               disabled={currentIndex === images.length - 1 || isGeneratingCaption}
-              className="px-3 py-1 text-sm bg-gray-100 rounded disabled:opacity-50"
+              className="px-3 py-1 text-sm text-black bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -229,14 +230,17 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
             className="w-24"
           />
           <span className="text-sm text-gray-600">{brushSize}px</span>
-          <button onClick={clearMask} className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
+          <Button 
+            onClick={clearMask} 
+            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+          >
             Clear Mask
-          </button>
+          </Button>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Prompt/Caption (optional):</label>
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 items-center">
             <input
               type="text"
               value={prompt}
@@ -244,14 +248,14 @@ export default function ImageAnnotator({ images, currentIndex, onIndexChange, an
               placeholder="Describe what you're masking..."
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button
+            <Button
               onClick={generateCaption}
               disabled={isGeneratingCaption}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2 whitespace-nowrap"
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 whitespace-nowrap"
             >
               {isGeneratingCaption ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               <span>{isGeneratingCaption ? "Generating..." : "Caption"}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

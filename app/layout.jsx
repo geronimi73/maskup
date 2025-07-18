@@ -1,7 +1,7 @@
 import "./globals.css"
 
-import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@vercel/analytics/next"
+import { ToastProvider } from "./components/ToastProvider"
 
 export const metadata = {
   title: "MaskUp - Image Annotation Tool",
@@ -17,8 +17,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
-        <main>{children}</main>
-        <Toaster />
+        <ToastProvider>{children}</ToastProvider>
         <Analytics />
       </body>
     </html>

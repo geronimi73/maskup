@@ -1,14 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { maskToBw, dataURLToCanvas, canvasToBlob } from "@/lib/utils" 
-import { Download, Upload, RotateCcw } from "lucide-react"
+import { Button } from "@/components/ui/button" 
+import { Download, Upload, RotateCcw, Loader2 } from "lucide-react"
+
+import { useToast } from "./ToastProvider"
+import HelpPopup from "./HelpPopup"
+import { maskToBw, dataURLToCanvas, canvasToBlob, emptyMask } from "@/lib/utils" 
+
+import * as hf_hub from "@huggingface/hub";
 
 export default function ExportPanel({ images, annotations, onReset }) {
   const [hfApiKey, setHfApiKey] = useState("")
   const [hfDatasetName, setHfDatasetName] = useState("")
   const [isExportingZIP, setIsExportingZIP] = useState(false)
   const [isExportingHF, setIsExportingHF] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, currentFile: "" })
+  const { toast } = useToast()
 
   const annotatedCount = Object.keys(annotations).filter((id) => annotations[id].mask).length
 
@@ -28,14 +36,18 @@ export default function ExportPanel({ images, annotations, onReset }) {
         zip.file(image.name, imageBlob)
 
         // Add mask if exists
+        const maskName = image.name.replace(/\.[^/.]+$/, "_mask.png")
+        let maskCanvas
         if (annotation?.mask) {
           // convert mask dataURL to a Canvas, threshhold the canvas, blob it and save
-          let maskCanvas = await dataURLToCanvas(annotation.mask)
+          maskCanvas = await dataURLToCanvas(annotation.mask)
           maskCanvas = maskToBw(maskCanvas)
-          const maskBlob = await canvasToBlob(maskCanvas)
-          const maskName = image.name.replace(/\.[^/.]+$/, "_mask.png")
-          zip.file(maskName, maskBlob)
+        } else {
+          const imageCanvas = await dataURLToCanvas(image.dataUrl)
+          maskCanvas = emptyMask(imageCanvas)
         }
+        const maskBlob = await canvasToBlob(maskCanvas)
+        zip.file(maskName, maskBlob)
 
         // Add prompt as text file
         const prompt = annotation?.prompt || "";
@@ -52,8 +64,11 @@ export default function ExportPanel({ images, annotations, onReset }) {
       a.download = "maskup_dataset.zip"
       a.click()
       URL.revokeObjectURL(url)
+
+      toast.success("Dataset downloaded successfully!")
+      
     } catch (error) {
-      alert("Error creating ZIP file: " + error.message)
+      toast.error("Error creating ZIP file: " + error.message)
     }
 
     setIsExportingZIP(false)
@@ -65,23 +80,108 @@ export default function ExportPanel({ images, annotations, onReset }) {
       return
     }
 
+    // Calculate total files to upload
+    const totalFiles =
+      images.length + // original images
+      1 // metadata.jsonl
+
+    setUploadProgress({ current: 0, total: totalFiles})
     setIsExportingHF(true)
 
     try {
-      // This is a simplified example - in a real implementation,
-      // you'd need to handle the HuggingFace dataset API properly
-      alert("HuggingFace upload functionality would be implemented here. For now, please use the ZIP download option.")
+      if (await hf_hub.repoExists({
+        repo: { type: "dataset", name: hfDatasetName },
+        accessToken: hfApiKey,      
+      })) {
+        // Stop if repo exists
+        toast.error("Dataset " + hfDatasetName + " already exists. Stop. We don't want to mess it up.")
+        setIsExportingHF(false)
+
+        return
+      } else {
+        // Create repo
+        await hf_hub.createRepo({
+          repo: { type: "dataset", name: hfDatasetName },
+          accessToken: hfApiKey,
+        });            
+      }
+
+      // Create metadata.jsonl 
+      let metadataJsonl = "", imageCount = 0
+
+      for (const image of images) {
+        imageCount += 1
+        const annotation = annotations[image.id]
+        const prompt = annotation?.prompt || ""
+
+        // Image 
+        // const imageName = image.name.replace(/\.[^/.]+$/, "img_" + imageCount)
+        const imageName = "IMG_" + imageCount + image.name.substring(image.name.lastIndexOf('.'));
+        const imageBlob = await fetch(image.dataUrl).then((r) => r.blob())
+        const imageFile = new File([imageBlob], imageName, { type: imageBlob.type });
+
+        // Mask, turn it to B/W before uploading
+        const maskName = imageName.replace(/\.[^/.]+$/, "_mask.png")
+        let maskCanvas
+        if (annotation?.mask) {
+          maskCanvas = await dataURLToCanvas(annotation.mask)
+          maskCanvas = maskToBw(maskCanvas)
+        } else {
+          const imageCanvas = await dataURLToCanvas(image.dataUrl)
+          maskCanvas = emptyMask(imageCanvas)
+        }
+        const maskBlob = await canvasToBlob(maskCanvas)
+        const maskFile = new File([maskBlob], maskName, { type: imageBlob.type });
+
+        // Upload image and mask
+        await hf_hub.uploadFile({
+          repo: { type: "dataset", name: hfDatasetName },
+          accessToken: hfApiKey,
+          file: imageFile,
+          path: imageName
+        });
+
+        await hf_hub.uploadFile({
+          repo: { type: "dataset", name: hfDatasetName },
+          accessToken: hfApiKey,
+          file: maskFile,
+          path: maskName
+        });
+
+        // Populate metadata
+        const entry = {
+          file_names: [imageName, maskName],
+          prompt: prompt,
+        }
+        metadataJsonl += JSON.stringify(entry) + "\n"
+
+        setUploadProgress({ current: imageCount, total: totalFiles})
+      }
+
+      // Upload metadata.jsonl
+      const metadataBlob = new Blob([metadataJsonl], { type: "text/jsonl" })
+      const metadataFile = new File([metadataBlob], "metadata.jsonl", { type: metadataBlob.type });
+      // uploadPromises.push(uploadFileToHF(hfApiKey, hfDatasetName, "metadata.jsonl", metadataBlob))
+      await hf_hub.uploadFile({
+        repo: { type: "dataset", name: hfDatasetName },
+        accessToken: hfApiKey,
+        file: metadataFile,
+        path: "metadata.jsonl"
+      });
+      setUploadProgress({ current: totalFiles, total: totalFiles})
+
+
     } catch (error) {
-      alert("Error uploading to HuggingFace: " + error.message)
+      setIsExportingHF(false)
+      toast.error("Error uploading to HuggingFace: " + error.message)
     }
 
+    toast.success("Dataset uploaded successfully!")
     setIsExportingHF(false)
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
-      <h3 className="text-lg font-medium mb-4">Export Dataset</h3>
-
       <div className="mb-6">
         <div className="text-sm text-gray-600 mb-2">Progress:</div>
         <div className="bg-gray-200 rounded-full h-2">
@@ -95,18 +195,47 @@ export default function ExportPanel({ images, annotations, onReset }) {
         </div>
       </div>
 
+      <h3 className="text-lg font-medium mb-4">Export Dataset</h3>
+
       <div className="space-y-4">
         <div>
-          <h4 className="font-medium mb-3">Download as ZIP</h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium">Download as ZIP</h4>
+{/*            <HelpPopup title="ZIP Download">
+              <p>
+                <strong>What you'll get:</strong>
+              </p>
+              <ul className="list-disc list-inside space-y-1 mt-1">
+                <li>
+                  <code>images/</code> - Original uploaded images
+                </li>
+                <li>
+                  <code>masks/</code> - Black/white mask files (PNG format)
+                </li>
+                <li>
+                  <code>prompts.txt</code> - Text file with image captions
+                </li>
+              </ul>
 
-          <button
+              <p className="mt-3">
+                <strong>File naming:</strong>
+              </p>
+              <p>Masks are named with "_mask" suffix. For example:</p>
+              <ul className="list-disc list-inside space-y-1 mt-1">
+                <li>
+                  <code>photo.jpg</code> → <code>photo_mask.png</code>
+                </li>
+              </ul>
+            </HelpPopup>*/}
+          </div>
+          <Button
             onClick={downloadAsZip}
             disabled={isExportingZIP || images.length === 0}
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 flex items-center justify-center space-x-2"
           >
             <Download className="w-4 h-4" />
             <span>{isExportingZIP ? "Creating ZIP..." : "Download ZIP"}</span>
-          </button>
+          </Button>
         </div>
 
         <div className="border-t pt-4">
@@ -126,25 +255,44 @@ export default function ExportPanel({ images, annotations, onReset }) {
               onChange={(e) => setHfDatasetName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             />
-            <button
+            {/* Upload Progress */}
+            {isExportingHF && uploadProgress.total > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Upload Progress</span>
+                  <span className="text-gray-900 font-medium">
+                    {uploadProgress.current} / {uploadProgress.total}
+                  </span>
+                </div>
+                <div className="bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button
               onClick={uploadToHuggingFace}
               disabled={isExportingHF || isExportingZIP || !hfApiKey || !hfDatasetName}
               className="w-full px-4 py-2 bg-[#FF9D0B] text-white rounded-md hover:bg-[#D0A704]  flex items-center justify-center space-x-2"
             >
-              <Upload className="w-4 h-4" />
+              {isExportingHF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {/*<Upload className="w-4 h-4" />*/}
               <span>{isExportingHF ? "Uploading..." : "Upload to HF"}</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         <div className="border-t pt-4">
-          <button
+          <Button
             onClick={onReset}
             className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center justify-center space-x-2"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Start New Project</span>
-          </button>          
+          </Button>          
         </div>
       </div>
     </div>

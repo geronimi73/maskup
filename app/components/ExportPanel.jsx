@@ -89,6 +89,8 @@ export default function ExportPanel({ images, annotations, onReset }) {
     setIsExportingHF(true)
 
     try {
+      const HF_SPLIT = "train/"
+
       if (await hf_hub.repoExists({
         repo: { type: "dataset", name: hfDatasetName },
         accessToken: hfApiKey,      
@@ -118,7 +120,7 @@ export default function ExportPanel({ images, annotations, onReset }) {
         // const imageName = image.name.replace(/\.[^/.]+$/, "img_" + imageCount)
         const imageName = "IMG_" + imageCount + image.name.substring(image.name.lastIndexOf('.'));
         const imageBlob = await fetch(image.dataUrl).then((r) => r.blob())
-        const imageFile = new File([imageBlob], imageName, { type: imageBlob.type });
+        const imageFile = new File([imageBlob], HF_SPLIT + imageName, { type: imageBlob.type });
 
         // Mask, turn it to B/W before uploading
         const maskName = imageName.replace(/\.[^/.]+$/, "_mask.png")
@@ -131,26 +133,28 @@ export default function ExportPanel({ images, annotations, onReset }) {
           maskCanvas = emptyMask(imageCanvas)
         }
         const maskBlob = await canvasToBlob(maskCanvas)
-        const maskFile = new File([maskBlob], maskName, { type: imageBlob.type });
+        const maskFile = new File([maskBlob], HF_SPLIT + maskName, { type: imageBlob.type });
 
         // Upload image and mask
         await hf_hub.uploadFile({
           repo: { type: "dataset", name: hfDatasetName },
           accessToken: hfApiKey,
           file: imageFile,
-          path: imageName
+          // path: imageName - apparently ignored?
         });
 
         await hf_hub.uploadFile({
           repo: { type: "dataset", name: hfDatasetName },
           accessToken: hfApiKey,
           file: maskFile,
-          path: maskName
+          // path: maskName - apparently ignored?
         });
 
         // Populate metadata
         const entry = {
           file_names: [imageName, maskName],
+          image_file_name: imageName,
+          mask_file_name: maskName,
           prompt: prompt,
         }
         metadataJsonl += JSON.stringify(entry) + "\n"
@@ -160,16 +164,16 @@ export default function ExportPanel({ images, annotations, onReset }) {
 
       // Upload metadata.jsonl
       const metadataBlob = new Blob([metadataJsonl], { type: "text/jsonl" })
-      const metadataFile = new File([metadataBlob], "metadata.jsonl", { type: metadataBlob.type });
-      // uploadPromises.push(uploadFileToHF(hfApiKey, hfDatasetName, "metadata.jsonl", metadataBlob))
+      const metadataFile = new File([metadataBlob], HF_SPLIT + "metadata.jsonl", { type: metadataBlob.type });
+
       await hf_hub.uploadFile({
         repo: { type: "dataset", name: hfDatasetName },
         accessToken: hfApiKey,
         file: metadataFile,
-        path: "metadata.jsonl"
+        // path: "train/metadata.jsonl" - apparently ignored?
       });
-      setUploadProgress({ current: totalFiles, total: totalFiles})
 
+      setUploadProgress({ current: totalFiles, total: totalFiles})
 
     } catch (error) {
       setIsExportingHF(false)

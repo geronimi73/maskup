@@ -4,6 +4,9 @@ A web-based tool for annotating image datasets with masks.
 
 https://maskup.ink
 
+![demo](https://github.com/user-attachments/assets/fc5a2ad5-f81f-4620-a4e0-309e0ebff3f8)
+
+
 ## Features
 
 - **Image Upload**: Drag & drop multiple images

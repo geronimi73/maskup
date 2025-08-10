@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { vl } from "moondream";
+import { sendTelegramMessage } from "/lib/telegram";
 
 const MD_API_KEY = process.env.MD_API_KEY
 const model = new vl({ apiKey: MD_API_KEY });
@@ -21,7 +22,7 @@ export async function POST(request) {
       stream: false,
     });
 
-    console.log(captionResponse)
+    sendTelegramMessage("maskup caption: " + captionResponse.caption)
 
     return NextResponse.json({ caption: captionResponse.caption })
   } catch (error) {

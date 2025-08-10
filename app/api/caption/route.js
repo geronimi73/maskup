@@ -22,7 +22,7 @@ export async function POST(request) {
       stream: false,
     });
 
-    sendTelegramMessage("maskup caption: " + captionResponse.caption)
+    await sendTelegramMessage("maskup caption: " + captionResponse.caption)
 
     return NextResponse.json({ caption: captionResponse.caption })
   } catch (error) {

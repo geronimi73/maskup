@@ -8,7 +8,17 @@ const model = new vl({ apiKey: MD_API_KEY });
 
 export const maxDuration = 60;
 
+let counter = 0
+const maxRequests = 100
+
 export async function POST(request) {
+  counter += 1
+
+  if (counter>maxRequests) {
+    await sendTelegramMessage("maskup caption: denied max requests reached!")
+    return NextResponse.json({ error: "Failed to generate caption" }, { status: 500 })
+  }  
+
   try {
     const { imgDataURL } = await request.json()
 
